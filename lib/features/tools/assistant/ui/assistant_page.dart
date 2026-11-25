@@ -615,63 +615,68 @@ class _Composer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      // 底部留白略增，让整块设置/输入区离屏底稍远；上方与消息区也留出间距。
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 14),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              IconButton(
-                tooltip: tr('添加文件'),
-                icon: const Icon(Icons.attach_file),
-                onPressed: controller.streaming ? null : onPick,
-              ),
-              Expanded(
-                child: TextField(
-                  controller: input,
-                  focusNode: focus,
-                  minLines: 2,
-                  maxLines: 5,
-                  textInputAction: TextInputAction.newline,
-                  decoration: InputDecoration(
-                    hintText: tr('输入消息…'),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(22),
+    // 顶部分隔线与消息区拉开层次；输入框及以下（模型/技能）归为同一输入区。
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: theme.dividerColor, width: 1)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 12, 8, 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                IconButton(
+                  tooltip: tr('添加文件'),
+                  icon: const Icon(Icons.attach_file, size: 26),
+                  onPressed: controller.streaming ? null : onPick,
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: input,
+                    focusNode: focus,
+                    minLines: 2,
+                    maxLines: 5,
+                    textInputAction: TextInputAction.newline,
+                    decoration: InputDecoration(
+                      hintText: tr('输入消息…'),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(22),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 4),
-              controller.streaming
-                  ? IconButton(
-                      tooltip: tr('停止'),
-                      icon: Icon(Icons.stop_circle_outlined,
-                          color: theme.colorScheme.error, size: 30),
-                      onPressed: controller.stop,
-                    )
-                  : IconButton(
-                      tooltip: tr('发送'),
-                      icon: Icon(Icons.send,
-                          color: theme.colorScheme.primary, size: 26),
-                      onPressed: onSend,
-                    ),
-            ],
-          ),
-          // 输入框下方同一行：左侧模型选择，最右侧技能选择。
-          Row(
-            children: <Widget>[
-              Expanded(child: _ModelBar(controller: controller)),
-              const SizedBox(width: 6),
-              _SkillButton(controller: controller),
-            ],
-          ),
-        ],
+                const SizedBox(width: 4),
+                controller.streaming
+                    ? IconButton(
+                        tooltip: tr('停止'),
+                        icon: Icon(Icons.stop_circle_outlined,
+                            color: theme.colorScheme.error, size: 26),
+                        onPressed: controller.stop,
+                      )
+                    : IconButton(
+                        tooltip: tr('发送'),
+                        icon: Icon(Icons.send,
+                            color: theme.colorScheme.primary, size: 26),
+                        onPressed: onSend,
+                      ),
+              ],
+            ),
+            // 输入框下方同一行：左侧模型选择，最右侧技能选择。
+            Row(
+              children: <Widget>[
+                Expanded(child: _ModelBar(controller: controller)),
+                const SizedBox(width: 6),
+                _SkillButton(controller: controller),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

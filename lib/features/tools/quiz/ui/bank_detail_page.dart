@@ -107,14 +107,6 @@ class _BankDetailPageState extends State<BankDetailPage> {
     if (mounted) Navigator.of(context).pop();
   }
 
-  /// 按题型重排当前题库，保持各题型内原有相对顺序。
-  Future<void> _sortByType() async {
-    await _repo.sortQuestionsByType(_bank.id);
-    if (!mounted) return;
-    showToast(context, tr('已按题型排序'));
-    await _refresh();
-  }
-
   void _openConfig({bool exam = false, QuizMode? mode}) {
     Navigator.of(context).push(quizRoute<void>(
         builder: (_) => QuizConfigPage(
@@ -167,17 +159,11 @@ class _BankDetailPageState extends State<BankDetailPage> {
             onSelected: (value) async {
               if (value == 'rename') await _rename();
               if (value == 'delete') await _delete();
-              if (value == 'sort') await _sortByType();
             },
             itemBuilder: (context) => <PopupMenuEntry<String>>[
               PopupMenuItem<String>(
                 value: 'rename',
                 child: Text(tr('重命名题库')),
-              ),
-              PopupMenuItem<String>(
-                value: 'sort',
-                key: const ValueKey('bank-sort'),
-                child: Text(tr('题目排序')),
               ),
               PopupMenuItem<String>(
                 value: 'delete',

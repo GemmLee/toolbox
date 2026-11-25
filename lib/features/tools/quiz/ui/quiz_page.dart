@@ -19,7 +19,6 @@ import 'bank_detail_page.dart';
 import 'quiz_ai_import_page.dart';
 import 'quiz_answer_page.dart';
 import 'quiz_backup_page.dart';
-import 'quiz_bank_order_page.dart';
 import 'quiz_common.dart';
 import 'quiz_excel_import_page.dart';
 import 'quiz_import_page.dart';
@@ -264,13 +263,6 @@ class _QuizHomeState extends State<_QuizHome> {
   Future<void> _openBank(Bank bank) async {
     await Navigator.of(context).push(quizRoute<void>(
         builder: (_) => BankDetailPage(repo: widget.repo, bank: bank)));
-    if (mounted) await _refresh();
-  }
-
-  /// 拖动调整题库顺序；返回后刷新首页，顺序由仓库读取。
-  Future<void> _openOrder() async {
-    await Navigator.of(context).push(
-        quizRoute<void>(builder: (_) => QuizBankOrderPage(repo: widget.repo)));
     if (mounted) await _refresh();
   }
 
@@ -695,12 +687,6 @@ class _QuizHomeState extends State<_QuizHome> {
                               icon: const Icon(Icons.create_new_folder_outlined,
                                   size: 20),
                               onPressed: _createFolder,
-                            ),
-                            IconButton(
-                              key: const ValueKey('quiz-bank-order'),
-                              tooltip: tr('调整顺序'),
-                              icon: const Icon(Icons.swap_vert, size: 20),
-                              onPressed: _openOrder,
                             ),
                             TextButton.icon(
                               onPressed: _import,

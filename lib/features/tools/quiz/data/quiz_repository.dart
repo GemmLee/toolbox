@@ -75,9 +75,6 @@ class QuizRepository {
 
   // ---------- 题库 ----------
 
-  /// 用户自定义题库顺序存 settings 表的一个 JSON 里（随整库备份一起导出 / 恢复）。
-  static const String bankOrderKey = 'bankOrder';
-
   Future<List<Bank>> listBanks() async {
     final rows = await db.rawQuery('''
       SELECT b.*,
@@ -93,42 +90,8 @@ class QuizRepository {
         ON f.bankId = b.id
       ORDER BY b.createdAt DESC
     ''');
-    final banks = rows.map(Bank.fromRow).toList();
-    final raw = await getSetting(bankOrderKey);
-    if (raw == null || raw.isEmpty) return banks;
-    final ids = _decodeBankOrder(raw);
-    if (ids.isEmpty) return banks;
-    final byId = <String, Bank>{for (final bank in banks) bank.id: bank};
-    final ordered = <Bank>[];
-    for (final id in ids) {
-      final bank = byId.remove(id);
-      if (bank != null) ordered.add(bank);
-    }
-    // 顺序里没记录的题库（含新导入的）按默认顺序排在末尾。
-    ordered.addAll(byId.values);
-    return ordered;
+    return rows.map(Bank.fromRow).toList();
   }
-
-  List<String> _decodeBankOrder(String raw) {
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) return const <String>[];
-      return decoded.whereType<String>().toList(growable: false);
-    } catch (_) {
-      return const <String>[];
-    }
-  }
-
-  /// 保存拖动后的题库顺序；改动立即落库，返回首页即生效。
-  Future<void> saveBankOrder(List<String> ids) =>
-      setSetting(bankOrderKey, jsonEncode(ids));
-
-  /// 恢复默认顺序（导入时间倒序）。
-  Future<void> resetBankOrder() => db.delete(
-        'settings',
-        where: 'key = ?',
-        whereArgs: <Object?>[bankOrderKey],
-      );
 
   /// 单个题库（带上题目 / 错题 / 收藏计数，与列表口径一致）。
   Future<Bank?> bankById(String id) async {
@@ -296,36 +259,6 @@ class QuizRepository {
     final row = q.toRow()..remove('id');
     await db
         .update('questions', row, where: 'id = ?', whereArgs: <Object?>[q.id]);
-  }
-
-  /// 按「单选 → 多选 → 判断 → 填空 → 简答」重排题库内题目。
-  ///
-  /// 同题型内保留原顺序，排序结果写回 orderNo，练习、预览与导出都会沿用。
-  Future<void> sortQuestionsByType(String bankId) async {
-    final questions = await questionsOfBank(bankId, limit: 100000);
-    if (questions.isEmpty) return;
-    final typeOrder = <String, int>{
-      for (var i = 0; i < allQuestionTypes.length; i++)
-        allQuestionTypes[i].key: i,
-    };
-    final sorted = List<Question>.from(questions)
-      ..sort((a, b) {
-        final byType = (typeOrder[a.type.key] ?? 99)
-            .compareTo(typeOrder[b.type.key] ?? 99);
-        return byType != 0 ? byType : a.orderNo.compareTo(b.orderNo);
-      });
-    await db.transaction((txn) async {
-      final batch = txn.batch();
-      for (var i = 0; i < sorted.length; i++) {
-        batch.update(
-          'questions',
-          <String, Object?>{'orderNo': i + 1},
-          where: 'id = ?',
-          whereArgs: <Object?>[sorted[i].id],
-        );
-      }
-      await batch.commit(noResult: true);
-    });
   }
 
   /// 把文本写入题目解析；题干 / 选项 / 答案与指纹保持不变。

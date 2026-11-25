@@ -1,4 +1,5 @@
 import 'settings_controller.dart';
+import 'app_version.dart';
 
 /// 轻量多语言：覆盖外壳（导航/标题）与「用户」目录及其子页。
 ///
@@ -21,7 +22,7 @@ class AppL10n {
         'XMtools 把常用小工具集中在一处：刷题与搜题、文字阅读器、文字识别、证件照、设备状态等都能在首页直接打开。数据主要保存在本机，AI 与联网类功能需要网络。',
     aboutToolHint:
         '新增工具：在 lib/features/tools 下新建页面，并在 builtin_tools.dart 注册一行即可。',
-    aboutVersion: '版本 1.0.6',
+    aboutVersion: '版本 $kAppVersion',
     ok: '知道了',
     profileSection: '个人信息',
     profileSubtitle: '城市、工资与五险一金比例',
@@ -95,7 +96,7 @@ class AppL10n {
         'XMtools 把常用小工具集中在一處：刷題與搜題、文字閱讀器、文字辨識、證件照、裝置狀態等都能在首頁直接開啟。資料主要儲存在本機，AI 與網路類功能需要連網。',
     aboutToolHint:
         '新增工具：在 lib/features/tools 下建立頁面，並在 builtin_tools.dart 註冊一行即可。',
-    aboutVersion: '版本 1.0.6',
+    aboutVersion: '版本 $kAppVersion',
     ok: '知道了',
     profileSection: '個人資訊',
     profileSubtitle: '城市、工資與五險一金比例',
@@ -169,7 +170,7 @@ class AppL10n {
         'XMtools gathers everyday tools in one place: quiz practice and search, a text reader, OCR, ID photos, device status and more, all one tap from the home screen. Data stays mostly on this device; AI and network features need internet.',
     aboutToolHint:
         'Add a tool: create a page under lib/features/tools and register it in builtin_tools.dart.',
-    aboutVersion: 'Version 1.0.6',
+    aboutVersion: 'Version $kAppVersion',
     ok: 'OK',
     profileSection: 'Personal Info',
     profileSubtitle: 'City, salary and insurance rates',

@@ -350,28 +350,6 @@ void main() {
     expect(find.text('导出 Excel'), findsOneWidget);
   });
 
-  testWidgets('题库详情更多菜单提供按题型排序', (tester) async {
-    final result = await QuizImporter.commit(repo, QuizImporter.parse(kBank));
-    final bank = (await repo.listBanks()).first;
-
-    await tester
-        .pumpWidget(MaterialApp(home: BankDetailPage(repo: repo, bank: bank)));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byIcon(Icons.more_vert));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('bank-sort')), findsOneWidget);
-    expect(find.text('题目排序'), findsOneWidget);
-
-    await tester.tap(find.text('题目排序'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('已按题型排序'), findsOneWidget);
-    expect(
-      (await repo.questionsOfBank(result.bankId)).map((q) => q.type).toList(),
-      <QuestionType>[QuestionType.single, QuestionType.trueFalse],
-    );
-  });
-
   testWidgets('题库详情：卡片入口与记录都在题库内部，空态各自独立', (tester) async {
     final preview = QuizImporter.parse(kBank);
     final result = await QuizImporter.commit(repo, preview);

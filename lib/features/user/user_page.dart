@@ -10,6 +10,7 @@ import 'about_page.dart';
 import 'app_storage_page.dart';
 import 'background_page.dart';
 import 'default_open_tool_page.dart';
+import 'download_station_page.dart';
 import 'font_size_page.dart';
 import 'language_page.dart';
 import 'settings_tile.dart';
@@ -94,6 +95,12 @@ class UserPage extends StatelessWidget {
             SettingsGroup(
               title: tr('关于'),
               tiles: [
+                SettingsTile(
+                  icon: Icons.download_outlined,
+                  title: tr('下载站'),
+                  subtitle: tr('在线资源'),
+                  onTap: () => _push(context, const DownloadStationPage()),
+                ),
                 SettingsTile(
                   icon: Icons.info_outline,
                   title: l10n.aboutTitle,

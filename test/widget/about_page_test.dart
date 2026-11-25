@@ -1,7 +1,14 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:toolbox/core/platform/browser_opener.dart';
 import 'package:toolbox/core/settings/settings_controller.dart';
 import 'package:toolbox/features/user/about_page.dart';
+import 'package:toolbox/features/user/app_update_service.dart';
 import '../support/test_env.dart';
 
 /// 关于页：应用信息 + 简介与反馈合卡 + 两个可点进的说明入口。
@@ -63,7 +70,14 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: AboutPage()));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('about-guide-tools')));
+    final tools = find.byKey(const ValueKey('about-guide-tools'));
+    await tester.scrollUntilVisible(
+      tools,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(tools);
     await tester.pumpAndSettle();
 
     expect(find.byType(AboutGuidePage), findsOneWidget);
@@ -78,6 +92,55 @@ void main() {
     );
   });
 
+  testWidgets('检测更新：有新版本时显示版本号与下载按钮，点击跳浏览器', (tester) async {
+    final opened = <String>[];
+    final client = MockClient((request) async {
+      expect(request.url.path, '/xmapk/version.json');
+      return http.Response(
+        jsonEncode(<String, dynamic>{
+          'version': '9.9.9',
+          'notes': '测试新版本',
+          'apkFile': 'XMtools-9.9.9.apk',
+        }),
+        200,
+        headers: <String, String>{'content-type': 'application/json'},
+      );
+    });
+    final service = AppUpdateService(client: client);
+    final channelCalls = <MethodCall>[];
+    const testChannel = MethodChannel('toolbox/browser-test');
+    final opener = BrowserOpener(channel: testChannel);
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      testChannel,
+      (call) async {
+        channelCalls.add(call);
+        opened.add(call.arguments['url'] as String);
+        return true;
+      },
+    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(testChannel, null));
+
+    await tester.pumpWidget(MaterialApp(
+      home: AboutPage(updateService: service, updateServiceOpener: opener),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('about-check-update')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('发现新版本 9.9.9'), findsOneWidget);
+    expect(find.text('测试新版本'), findsOneWidget);
+    expect(find.byKey(const ValueKey('about-download-update')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('about-download-update')));
+    await tester.pumpAndSettle();
+    expect(channelCalls, hasLength(1));
+    expect(
+        opened.single, 'https://xmonline-sgcc.r2.dev/xmapk/XMtools-9.9.9.apk');
+    service.dispose();
+  });
+
   testWidgets('切换到英文后入口卡与详情页文案同步切换', (tester) async {
     await SettingsController.instance.setLanguage(AppLanguage.english);
     await tester.pumpWidget(const MaterialApp(home: AboutPage()));
@@ -85,7 +148,8 @@ void main() {
 
     expect(find.text('Feedback & suggestions'), findsOneWidget);
     expect(find.textContaining('ljm123aa@163.com'), findsOneWidget);
-    expect(find.textContaining('XMtools gathers everyday tools'), findsOneWidget);
+    expect(
+        find.textContaining('XMtools gathers everyday tools'), findsOneWidget);
 
     // 英文简介比中文长，入口卡落到折叠线以下，先滚过去再断言与点击。
     final start = find.byKey(const ValueKey('about-guide-start'));

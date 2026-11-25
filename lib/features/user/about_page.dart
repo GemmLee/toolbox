@@ -1,12 +1,27 @@
 import 'package:flutter/material.dart';
 
+import '../../core/platform/browser_opener.dart';
 import '../../core/settings/app_l10n.dart';
+import '../../core/settings/app_version.dart';
 import '../../core/settings/tool_texts.dart';
+import '../../core/widgets/app_widgets.dart';
+import 'app_update_service.dart';
 
-/// 「关于」页：应用信息 + 简介与反馈 + 两个可点进的说明入口。
-class AboutPage extends StatelessWidget {
-  const AboutPage({super.key});
+/// 「关于」页：应用信息 + 检测更新 + 简介与反馈 + 两个可点进的说明入口。
+class AboutPage extends StatefulWidget {
+  const AboutPage({super.key, this.updateService, this.updateServiceOpener});
 
+  /// 可注入以便测试；默认从公开 R2 域名读取 version.json。
+  final AppUpdateService? updateService;
+
+  /// 更新下载按钮的浏览器打开器，可注入以便测试。
+  final BrowserOpener? updateServiceOpener;
+
+  @override
+  State<AboutPage> createState() => _AboutPageState();
+}
+
+class _AboutPageState extends State<AboutPage> {
   static const List<GuideItem> _gettingStarted = <GuideItem>[
     GuideItem(
       Icons.quiz_outlined,
@@ -34,7 +49,7 @@ class AboutPage extends StatelessWidget {
     GuideItem(
       Icons.quiz_outlined,
       '刷题助手',
-      '练习 / 考试 / 断点续答，配错题本、收藏、笔记与题库排序；做题时点题型旁的铅笔可改题干、选项与答案，还能单题库导出 JSON 或 Excel。',
+      '练习 / 考试 / 断点续答，配错题本、收藏、笔记与文件夹分类；做题时点题型旁的铅笔可改题干、选项与答案，还能单题库导出 JSON 或 Excel。',
     ),
     GuideItem(
       Icons.image_search_outlined,
@@ -104,7 +119,12 @@ class AboutPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          // 简介与反馈合并成一张卡，紧挨着应用信息。
+          _UpdateCard(
+            service: widget.updateService,
+            opener: widget.updateServiceOpener,
+          ),
+          const SizedBox(height: 4),
+          // 简介与反馈合并成一张卡，紧挨着应用信息与更新。
           _introCard(context, theme, l10n),
           const SizedBox(height: 4),
           _entryCard(
@@ -305,6 +325,159 @@ class _GuideRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 检测更新卡：点按钮拉取 R2 的 version.json，有新版本则给出下载按钮（跳浏览器）。
+///
+/// 只显示公开直链，不暴露任何私有域名或密钥。
+class _UpdateCard extends StatefulWidget {
+  const _UpdateCard({this.service, BrowserOpener? opener}) : _opener = opener;
+
+  final AppUpdateService? service;
+  final BrowserOpener? _opener;
+
+  @override
+  State<_UpdateCard> createState() => _UpdateCardState();
+}
+
+class _UpdateCardState extends State<_UpdateCard> {
+  late AppUpdateService _service;
+  BrowserOpener? _opener;
+  bool _checking = false;
+  AppUpdateInfo? _info;
+  String? _error;
+  bool _downloading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _service = widget.service ?? AppUpdateService();
+    _opener = widget._opener;
+  }
+
+  @override
+  void dispose() {
+    if (widget.service == null) _service.dispose();
+    super.dispose();
+  }
+
+  Future<void> _check() async {
+    if (_checking) return;
+    setState(() {
+      _checking = true;
+      _error = null;
+      _info = null;
+    });
+    try {
+      final info = await _service.fetch();
+      if (!mounted) return;
+      setState(() {
+        _info = info;
+        _checking = false;
+      });
+    } on AppUpdateException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.message;
+        _checking = false;
+      });
+    }
+  }
+
+  Future<void> _download() async {
+    final info = _info;
+    if (info == null || _downloading) return;
+    setState(() => _downloading = true);
+    final opener = _opener ?? BrowserOpener();
+    final url = info.apkUrl(_service.baseUrl);
+    final ok = await opener.open(url);
+    if (!mounted) return;
+    setState(() => _downloading = false);
+    if (!ok) showToast(context, tr('无法打开浏览器，请检查系统设置'));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasUpdate =
+        _info != null && isNewerVersion(_info!.version, kAppVersion);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Icon(Icons.system_update_outlined,
+                    size: 20, color: theme.colorScheme.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    tr('检测更新'),
+                    style: theme.textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                if (_checking)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  TextButton(
+                    key: const ValueKey('about-check-update'),
+                    onPressed: _check,
+                    child: Text(_info == null ? tr('检测更新') : tr('重新检测')),
+                  ),
+              ],
+            ),
+            if (_error != null) ...<Widget>[
+              const SizedBox(height: 6),
+              Text(
+                '${tr('检测失败')}：$_error',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ],
+            if (_info != null) ...<Widget>[
+              const SizedBox(height: 6),
+              Text(
+                hasUpdate
+                    ? trf('发现新版本 {version}',
+                        <String, Object?>{'version': _info!.version})
+                    : tr('当前已是最新版本'),
+                style: theme.textTheme.bodyMedium,
+              ),
+              if (_info!.notes.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 4),
+                Text(
+                  _info!.notes,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+              if (hasUpdate) ...<Widget>[
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.icon(
+                    key: const ValueKey('about-download-update'),
+                    onPressed: _downloading ? null : _download,
+                    icon: const Icon(Icons.download_outlined, size: 18),
+                    label: Text(_downloading ? tr('正在打开…') : tr('下载新版本')),
+                  ),
+                ),
+              ],
+            ],
+          ],
+        ),
       ),
     );
   }

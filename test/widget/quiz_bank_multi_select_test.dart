@@ -105,6 +105,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('quiz-selection-exit')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('quiz-selection-exit')), findsNothing);
-    expect(find.byKey(const ValueKey('quiz-bank-order')), findsOneWidget);
+    // 排序入口已删除，退出多选后只剩新建文件夹与导入。
+    expect(find.byKey(const ValueKey('quiz-bank-order')), findsNothing);
+    expect(find.byKey(const ValueKey('quiz-folder-create')), findsOneWidget);
   });
 }

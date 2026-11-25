@@ -87,6 +87,7 @@ class MainActivity : FlutterActivity() {
         private const val AUTO_CLICK_CHANNEL = "toolbox/auto_click"
         private const val LINK_CHANNEL = "toolbox/link_webview"
         private const val GEO_CHANNEL = "toolbox/watermark_geo"
+        private const val BROWSER_CHANNEL = "toolbox/browser"
         private const val REQ_LINK_LOGIN = 0x5A01
         private const val REQ_GEO_PERMISSION = 0x5A02
         private const val DOWNLOAD_SUBDIR = "XMtools"
@@ -634,6 +635,35 @@ class MainActivity : FlutterActivity() {
                         } else {
                             deliverGeo(result)
                         }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+        // 用系统浏览器打开公开直链（更新下载 / 下载站），不接触任何鉴权信息。
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, BROWSER_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "open" -> {
+                        val url = call.argument<String>("url")
+                        if (url.isNullOrBlank()) {
+                            result.success(false)
+                            return@setMethodCallHandler
+                        }
+                        val ok = try {
+                            val uri = Uri.parse(url)
+                            val scheme = uri.scheme?.lowercase()
+                            if (scheme != "http" && scheme != "https") {
+                                false
+                            } else {
+                                startActivity(
+                                    Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                )
+                                true
+                            }
+                        } catch (e: Exception) {
+                            false
+                        }
+                        result.success(ok)
                     }
                     else -> result.notImplemented()
                 }
