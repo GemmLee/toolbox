@@ -1,0 +1,59 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+android {
+    namespace = "com.toolbox.app"
+    compileSdk = flutter.compileSdkVersion
+    ndkVersion = "25.1.8937393"
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_17
+    }
+
+    defaultConfig {
+        applicationId = "com.toolbox.app"
+        // 纯安卓 arm 架构：只打 arm64-v8a，减小包体
+        ndk {
+            abiFilters.clear()
+            abiFilters "arm64-v8a"
+        }
+        minSdk = 23
+        targetSdk = flutter.targetSdkVersion
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+    }
+
+    buildTypes {
+        release {
+            // TODO: Add your own signing config for the release build.
+            // Signing with the debug keys for now, so `flutter run --release` works.
+            signingConfig = signingConfigs.debug
+        }
+    }
+}
+
+flutter {
+    source = "../.."
+}
+
+dependencies {
+    // OCR 文字识别：ML Kit 中文 + 拉丁 bundled 模型随 APK 打包，
+    // 离线可用、无需 Google Play 服务动态下载模型；适配排版整齐的印刷体。
+    implementation "com.google.mlkit:text-recognition-chinese:16.0.1"
+    // 证件照：人脸检测（bundled 模型，离线），用于「无人脸/多人脸/角度过大」校验。
+    implementation "com.google.mlkit:face-detection:16.1.7"
+    // 证件照：U²-Net（u2netp）抠图推理，模型文件在 assets/u2netp.tflite。
+    implementation "org.tensorflow:tensorflow-lite:2.16.1"
+    // 网盘登录页：把 WebView 的 client hints 对齐到桌面 UA（WebSettingsCompat.setUserAgentMetadata），
+    // 否则「UA 桌面 Chrome / hints Android WebView」的矛盾指纹会被风控降级成移动端落地页。
+    implementation "androidx.webkit:webkit:1.11.0"
+}

@@ -1,0 +1,154 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 联网权限：智能助手调用大模型接口需要。Flutter 模板只在 debug/profile
+         的 manifest 里声明，release 包必须在此显式声明，否则 DNS 解析失败
+         （表现为 SocketException: Failed host lookup, errno = 7）。 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 读取网络类型/网关/DNS 供 IP 诊断；普通权限，无需运行时申请。 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- AI 题库转换切后台/息屏后保持 CPU 运行。 -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!-- 便捷搜题的悬浮窗：需要用户在系统设置里单独授权（特殊权限，非运行时弹窗）。 -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <!-- 麦克风权限：测量工具中的分贝仪需要采集环境声音音量。 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- 拍照水印：读取当前经纬度/海拔用于实时信息水印（运行时申请）。 -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <!-- 导出文件到系统「下载」目录：Android 10+ 走 MediaStore 不需要权限，
+         9 及以下写公共目录才需要这条（限定 maxSdkVersion，不影响新系统）。 -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28"/>
+    <application
+        android:label="XMtools"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is visible to the user
+                 while the Flutter UI initializes. After that, this theme continues
+                 to determine the Window background behind the Flutter UI. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- 微信 / QQ 等第三方「用其他应用打开」文本类文件（txt / json / md / csv 等）。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="content"/>
+                <data android:scheme="file"/>
+                <data android:mimeType="text/plain"/>
+                <data android:mimeType="text/markdown"/>
+                <data android:mimeType="text/x-markdown"/>
+                <data android:mimeType="application/json"/>
+                <data android:mimeType="application/octet-stream"/>
+            </intent-filter>
+            <!-- 部分 App 用 */* 派发文件，兜底保证 XMtools 出现在候选列表；
+                 App 内按扩展名二次过滤，不支持的类型会给出提示。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="content"/>
+                <data android:scheme="file"/>
+                <data android:mimeType="*/*"/>
+            </intent-filter>
+            <!-- 分享到 XMtools（单文件 / 多文件）。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <action android:name="android.intent.action.SEND_MULTIPLE"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="*/*"/>
+            </intent-filter>
+        </activity>
+        <!-- 链接解析：复用网盘官方登录页取 Cookie / localStorage，exported=false，
+             只能由应用内的 MethodChannel 拉起。 -->
+        <activity
+            android:name=".linkparser.WebViewLoginActivity"
+            android:exported="false"
+            android:theme="@style/NormalTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize"/>
+        <!-- 分享文件到微信 / QQ 等：把私有目录里的文件以 content:// 暴露给
+             被授予临时读权限的目标 App。exported=false + grantUriPermissions，
+             只有本次 share 的 URI 可读。 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+        <!-- 便捷搜题的悬浮窗容器：独立于 Activity 显示，退到其他 App 也在。 -->
+        <service
+            android:name=".quicksearch.QuickSearchService"
+            android:exported="false"/>
+        <!-- 智能搜题：结果窗 + 框选窗的宿主。 -->
+        <service
+            android:name=".smartsearch.SmartSearchService"
+            android:exported="false"/>
+        <!-- 智能搜题的取字通道。无障碍服务必须 exported=true 并加系统权限，
+             否则「设置 › 无障碍」里看不到这一项；真正能启动它的只有系统。 -->
+        <service
+            android:name=".smartsearch.SmartSearchAccessibilityService"
+            android:exported="true"
+            android:label="@string/accessibility_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config"/>
+        </service>
+        <!-- 自动点击：悬浮控制面板 + 循环调度。 -->
+        <service
+            android:name=".autoclick.AutoClickService"
+            android:exported="false"/>
+        <!-- 自动点击的手势来源。与智能搜题一样需 exported=true 才能在
+             「设置 › 无障碍」里出现；只有系统能绑定它。 -->
+        <service
+            android:name=".autoclick.AutoClickAccessibilityService"
+            android:exported="true"
+            android:label="@string/auto_click_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/auto_click_accessibility_config"/>
+        </service>
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+    <!-- Required to query activities that can process text, see:
+         https://developer.android.com/training/package-visibility and
+         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
+
+         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+    </queries>
+</manifest>

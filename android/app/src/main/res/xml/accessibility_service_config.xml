@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 智能搜题的取字通道：
+     - 监听窗口内容变化，宿主应用翻页/换题时触发重新搜题；
+     - canTakeScreenshot 允许无障碍服务直接截屏（Android 11+），
+       不需要 MediaProjection 每次弹授权。
+     packageNames 不填，表示对所有应用生效（悬浮窗本身就是跨应用用的）。 -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowContentChanged|typeWindowStateChanged|typeViewScrolled|typeViewTextChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagDefault"
+    android:canRetrieveWindowContent="true"
+    android:canTakeScreenshot="true"
+    android:description="@string/accessibility_service_description"
+    android:label="@string/accessibility_service_label"
+    android:notificationTimeout="300" />

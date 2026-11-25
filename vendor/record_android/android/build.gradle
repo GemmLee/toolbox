@@ -1,0 +1,41 @@
+group 'com.llfbandit.record'
+version '1.0'
+
+// 兼容补丁（针对 Flutter 3.24.3 / AGP 8.3.0 / Kotlin 1.8.22 / Gradle 8.5）：
+// 1) 去掉插件自带的 buildscript classpath（AGP 8.12.3 与 Gradle 8.5 不兼容，
+//    表现为 "substring() on null object"）；
+// 2) `flutter.compileSdkVersion` 在本项目的插件子项目里不存在，直接写 34。
+// 上游若修复后可移除 vendor，改回 pub.dev 版本。
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+android {
+    namespace = 'com.llfbandit.record'
+
+    compileSdk = 34
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+    }
+
+    defaultConfig {
+        minSdk = 23
+    }
+}

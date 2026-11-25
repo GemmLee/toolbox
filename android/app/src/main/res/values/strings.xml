@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 智能搜题的无障碍服务：在「设置 › 无障碍」里显示的名称与说明。 -->
+    <string name="accessibility_service_label">XMtools 智能搜题</string>
+    <string name="accessibility_service_description">只在悬浮窗框选的区域内截屏取字，用于在本机题库里匹配题目与答案。截屏内容不上传，也不会读取其他应用的账号与输入内容。</string>
+    <!-- 自动点击的无障碍服务：在「设置 › 无障碍」里显示的名称与说明。 -->
+    <string name="auto_click_service_label">XMtools 自动点击</string>
+    <string name="auto_click_service_description">按你在 XMtools 里设置的点位、顺序、间隔与随机延迟，在其他应用或桌面上执行点击、滑动与返回。不读取屏幕内容，也不上传任何数据。</string>
+</resources>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 分享用：应用存储空间落在 app_storage/（getDataDir 下），既不是 files/ 也不是 cache/，
+     所以用 root-path 覆盖数据目录，配合 exported=false 的 provider 只对本 App 显式授权的
+     URI 生效，不会对外暴露目录列表。 -->
+<paths>
+    <root-path name="app_data" path="." />
+    <cache-path name="cache" path="." />
+    <files-path name="files" path="." />
+</paths>
