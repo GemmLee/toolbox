@@ -7,15 +7,18 @@ import '../../core/settings/tool_texts.dart';
 import '../../core/widgets/app_widgets.dart';
 import 'app_update_service.dart';
 
-/// 「关于」页：应用信息 + 检测更新 + 简介与反馈 + 两个可点进的说明入口。
+/// 「关于」页：应用信息、检测更新、简介与说明入口。
 class AboutPage extends StatefulWidget {
-  const AboutPage({super.key, this.updateService, this.updateServiceOpener});
+  const AboutPage({
+    super.key,
+    this.updateService,
+    this.updateServiceOpener,
+    this.projectOpener,
+  });
 
-  /// 可注入以便测试；默认从公开 R2 域名读取 version.json。
   final AppUpdateService? updateService;
-
-  /// 更新下载按钮的浏览器打开器，可注入以便测试。
   final BrowserOpener? updateServiceOpener;
+  final BrowserOpener? projectOpener;
 
   @override
   State<AboutPage> createState() => _AboutPageState();
@@ -78,6 +81,15 @@ class _AboutPageState extends State<AboutPage> {
     ),
   ];
 
+  static const String _projectUrl = 'https://github.com/GemmLee/toolbox';
+
+  Future<void> _openProject(BuildContext context) async {
+    final opener = widget.projectOpener ?? BrowserOpener();
+    final ok = await opener.open(_projectUrl);
+    if (!context.mounted) return;
+    if (!ok) showToast(context, tr('无法打开浏览器，请检查系统设置'));
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -108,11 +120,29 @@ class _AboutPageState extends State<AboutPage> {
                         ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    l10n.aboutVersion,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        l10n.aboutVersion,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Tooltip(
+                        message: tr('项目主页'),
+                        child: InkWell(
+                          key: const ValueKey('about-github'),
+                          onTap: () => _openProject(context),
+                          child: Icon(
+                            Icons.code_outlined,
+                            size: 18,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -330,9 +360,7 @@ class _GuideRow extends StatelessWidget {
   }
 }
 
-/// 检测更新卡：点按钮拉取 R2 的 version.json，有新版本则给出下载按钮（跳浏览器）。
-///
-/// 只显示公开直链，不暴露任何私有域名或密钥。
+/// 检测更新卡。
 class _UpdateCard extends StatefulWidget {
   const _UpdateCard({this.service, BrowserOpener? opener}) : _opener = opener;
 
@@ -392,7 +420,7 @@ class _UpdateCardState extends State<_UpdateCard> {
     if (info == null || _downloading) return;
     setState(() => _downloading = true);
     final opener = _opener ?? BrowserOpener();
-    final url = info.apkUrl(_service.baseUrl);
+    final url = info.openUrl;
     final ok = await opener.open(url);
     if (!mounted) return;
     setState(() => _downloading = false);

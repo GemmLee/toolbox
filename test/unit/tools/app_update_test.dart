@@ -22,50 +22,81 @@ void main() {
     });
   });
 
-  group('更新清单', () {
-    test('解析字段并拼出公开 R2 直链（中文文件名编码）', () {
-      final info = AppUpdateInfo.fromJson(<String, dynamic>{
-        'version': '1.0.7',
-        'versionCode': 8,
-        'notes': '修复问题',
-        'apkFile': 'XMtools-1.0.7.apk',
+  group('Release 更新信息', () {
+    test('解析 tag 与 APK asset 直链', () {
+      final info = AppUpdateInfo.fromReleaseJson(<String, dynamic>{
+        'tag_name': 'v1.0.7',
+        'body': '修复问题',
+        'html_url': 'https://github.com/GemmLee/toolbox/releases/tag/v1.0.7',
+        'assets': <Object?>[
+          <String, Object?>{
+            'name': 'notes.txt',
+            'browser_download_url': 'https://example.com/notes.txt',
+          },
+          <String, Object?>{
+            'name': 'XMtools-1.0.7.apk',
+            'browser_download_url':
+                'https://github.com/GemmLee/toolbox/releases/download/v1.0.7/XMtools-1.0.7.apk',
+          },
+        ],
       });
       expect(info.version, '1.0.7');
-      expect(info.versionCode, 8);
+      expect(info.notes, '修复问题');
       expect(
-        info.apkUrl(AppUpdateService.kPublicResourceBaseUrl),
-        'https://xmonline-sgcc.r2.dev/xmapk/XMtools-1.0.7.apk',
+        info.openUrl,
+        'https://github.com/GemmLee/toolbox/releases/download/v1.0.7/XMtools-1.0.7.apk',
       );
-      const fallback = AppUpdateInfo(version: '1.0.8');
-      expect(
-        fallback.apkUrl('https://example.r2.dev/'),
-        'https://example.r2.dev/xmapk/XMtools-1.0.8.apk',
+
+      const noAsset = AppUpdateInfo(
+        version: '1.0.8',
+        releaseUrl: 'https://github.com/GemmLee/toolbox/releases/tag/v1.0.8',
       );
+      expect(noAsset.openUrl,
+          'https://github.com/GemmLee/toolbox/releases/tag/v1.0.8');
     });
 
-    test('fetch 读取 version.json；HTTP 非 200 抛异常', () async {
-      final client = MockClient((request) async {
-        expect(request.url.path, '/xmapk/version.json');
-        return http.Response(
-          jsonEncode(<String, dynamic>{
-            'version': '1.0.7',
-            'notes': '新版本',
-          }),
-          200,
-          headers: <String, String>{'content-type': 'application/json'},
-        );
-      });
-      final service = AppUpdateService(client: client);
+    test('fetch 读取最新 Release；404 与格式错误抛异常', () async {
+      final service = AppUpdateService(
+        client: MockClient((request) async {
+          expect(
+            request.url.toString(),
+            'https://api.github.com/repos/GemmLee/toolbox/releases/latest',
+          );
+          return http.Response(
+            jsonEncode(<String, dynamic>{
+              'tag_name': 'v1.0.7',
+              'body': '新版本',
+              'assets': <Object?>[
+                <String, Object?>{
+                  'name': 'XMtools-1.0.7.apk',
+                  'browser_download_url': 'https://download.example/x.apk',
+                },
+              ],
+            }),
+            200,
+            headers: <String, String>{'content-type': 'application/json'},
+          );
+        }),
+      );
       final info = await service.fetch();
       expect(info.version, '1.0.7');
       expect(info.notes, '新版本');
+      expect(info.openUrl, 'https://download.example/x.apk');
       service.dispose();
 
       final failing = AppUpdateService(
-        client: MockClient((_) async => http.Response('missing', 404)),
+        client: MockClient((_) async => http.Response('not found', 404)),
       );
-      expect(failing.fetch(), throwsA(isA<AppUpdateException>()));
+      expect(failing.fetch(),
+          throwsA(isA<AppUpdateException>().having((e) => e.message, 'message',
+              contains('暂无发布版本'))));
       failing.dispose();
+
+      final broken = AppUpdateService(
+        client: MockClient((_) async => http.Response('{}', 200)),
+      );
+      expect(broken.fetch(), throwsA(isA<AppUpdateException>()));
+      broken.dispose();
     });
   });
 }

@@ -1,9 +1,6 @@
 import 'package:flutter/services.dart';
 
-/// 用系统浏览器打开外部链接（跳转下载直链）。
-///
-/// 只接收公开 https 链接；不传任何密钥或鉴权参数。
-/// [channel] 可注入以便测试；原生侧在 MainActivity 注册 `toolbox/browser`。
+/// 用系统浏览器打开外部公开链接。
 class BrowserOpener {
   BrowserOpener({MethodChannel? channel})
       : _channel = channel ?? const MethodChannel('toolbox/browser');

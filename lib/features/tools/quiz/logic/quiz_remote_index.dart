@@ -5,9 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../../core/storage/local_store.dart';
 
-/// 一条可下载文件内容（与 R2 的 quiz-bank/index.json 中 files[] 对应）。
-///
-/// 网页与 APP 共用这份索引：新增题库只改 R2 上的 index.json，两端同时生效。
+/// 一条可下载文件（与 quiz-bank/index.json 的 files[] 对应）。
 class QuizRemoteFile {
   const QuizRemoteFile({
     required this.id,
@@ -66,7 +64,7 @@ class QuizRemoteFile {
         'types': types,
       };
 
-  /// 题数 + 各题型数量，形如 `725 题 · 单选 477 · 多选 98 · 判断 150`。
+  /// 题数与各题型数量。
   String get metaLabel {
     const labels = <String, String>{
       'single': '单选',
@@ -89,7 +87,7 @@ class QuizRemoteFile {
     return '${(size / 1024).round()} KB';
   }
 
-  /// 完整下载地址：baseUrl / dir / file（中文文件名做百分号编码）。
+  /// 完整下载地址，中文文件名做百分号编码。
   String downloadUrl(String baseUrl) {
     final base = baseUrl.endsWith('/')
         ? baseUrl.substring(0, baseUrl.length - 1)
@@ -108,65 +106,82 @@ class QuizIndexException implements Exception {
   String toString() => message;
 }
 
-/// R2 内容索引服务：拉取并解析 quiz-bank/index.json。
-///
-/// 默认地址指向公开的 R2 bucket 域名；baseUrl 可通过设置页覆盖（企业自建域）。
-/// [client] 可注入以便测试与 DNS 兜底，超时统一为 [timeout]。
+/// 题库索引服务：拉取并解析 index.json。
 class QuizIndexService {
   QuizIndexService({
     http.Client? client,
     this.baseUrl = kDefaultQuizResourceBaseUrl,
+    this.fallbackBaseUrl = '',
     this.timeout = const Duration(seconds: 15),
   }) : _client = client ?? http.Client();
 
-  /// 默认资源域名：与网页 xmhome.html 的 R2_BASE 保持一致。
   static const String kDefaultQuizResourceBaseUrl =
       'https://xmonline-sgcc.r2.dev';
+  static const String kPagesResourceBaseUrl = 'https://xmhome.ljm123aaa.workers.dev/';
   static const String indexDir = 'quiz-bank';
   static const String indexFile = 'index.json';
 
   final http.Client _client;
   final String baseUrl;
+  final String fallbackBaseUrl;
   final Duration timeout;
 
-  String get indexUrl {
-    final base = baseUrl.endsWith('/')
-        ? baseUrl.substring(0, baseUrl.length - 1)
-        : baseUrl;
-    return '$base/$indexDir/$indexFile';
+  String _usedBaseUrl = '';
+
+  /// 实际拉取成功的域名，用于拼接同站点下载直链。
+  String get usedBaseUrl => _usedBaseUrl.isEmpty ? baseUrl : _usedBaseUrl;
+
+  String _indexUrlFor(String base) {
+    final root = base.endsWith('/') ? base.substring(0, base.length - 1) : base;
+    return '$root/$indexDir/$indexFile';
   }
 
+  String get indexUrl => _indexUrlFor(baseUrl);
+
   Future<List<QuizRemoteFile>> fetch() async {
+    try {
+      final files = await _fetchFrom(baseUrl);
+      _usedBaseUrl = baseUrl;
+      return files;
+    } catch (_) {
+      if (fallbackBaseUrl.isEmpty || fallbackBaseUrl == baseUrl) rethrow;
+      final files = await _fetchFrom(fallbackBaseUrl);
+      _usedBaseUrl = fallbackBaseUrl;
+      return files;
+    }
+  }
+
+  Future<List<QuizRemoteFile>> _fetchFrom(String base) async {
     final http.Response resp;
     try {
       resp = await _client
-          .get(Uri.parse(indexUrl), headers: const <String, String>{
+          .get(Uri.parse(_indexUrlFor(base)), headers: const <String, String>{
         'Accept': 'application/json',
       }).timeout(timeout);
     } on TimeoutException {
-      throw const QuizIndexException('请求超时，请检查网络后重试');
-    } catch (e) {
-      throw QuizIndexException('网络请求失败：$e');
+      throw const QuizIndexException('请求超时，请稍后重试');
+    } catch (_) {
+      throw const QuizIndexException('网络请求失败，请稍后重试');
     }
     if (resp.statusCode != 200) {
-      throw QuizIndexException('索引服务返回 HTTP ${resp.statusCode}');
+      throw const QuizIndexException('资源加载失败，请稍后重试');
     }
     final body = utf8.decode(resp.bodyBytes, allowMalformed: true);
     Object? decoded;
     try {
       decoded = jsonDecode(body);
     } on FormatException {
-      throw const QuizIndexException('索引不是有效的 JSON');
+      throw const QuizIndexException('资源格式异常');
     }
-    if (decoded is! Map) throw const QuizIndexException('索引格式异常');
+    if (decoded is! Map) throw const QuizIndexException('资源格式异常');
     final files = decoded['files'];
-    if (files is! List) throw const QuizIndexException('索引缺少 files 字段');
+    if (files is! List) throw const QuizIndexException('暂无可下载资源');
     final result = files
         .whereType<Map>()
         .map((e) => QuizRemoteFile.fromJson(Map<String, dynamic>.from(e)))
         .where((f) => f.file.isNotEmpty && f.title.isNotEmpty)
         .toList(growable: false);
-    if (result.isEmpty) throw const QuizIndexException('索引中没有可下载文件');
+    if (result.isEmpty) throw const QuizIndexException('暂无可下载资源');
     return result;
   }
 

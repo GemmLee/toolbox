@@ -1908,6 +1908,9 @@ const Map<String, Map<String, String>> _table = <String, Map<String, String>>{
     '在线资源': '線上資源',
     '题库资源': '題庫資源',
     '安装包': '安裝包',
+    '下载安装包': '下載安裝包',
+    '即将开放': '即將開放',
+    '项目主页': '專案主頁',
     '暂无在线资源，请稍后重试': '暫無線上資源，請稍後重試',
   },
   'en': <String, String>{
@@ -3962,6 +3965,9 @@ const Map<String, Map<String, String>> _table = <String, Map<String, String>>{
     '在线资源': 'Online resources',
     '题库资源': 'Question banks',
     '安装包': 'Installer',
+    '下载安装包': 'Download APK',
+    '即将开放': 'Coming soon',
+    '项目主页': 'Project home',
     '暂无在线资源，请稍后重试': 'No online resources yet. Try again later.',
   },
 };

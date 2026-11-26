@@ -48,8 +48,9 @@ app.*.map.json
 # WorkBuddy workspace notes (not part of app source)
 .workbuddy/
 
-# Golden test failure artifacts (regenerated locally, never needed in git)
+# Test failure artifacts (regenerated locally, never needed in git)
 test/golden/failures/
+test/failures/
 
 # Third-party vendored Android build cache
 vendor/**/build/

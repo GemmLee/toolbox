@@ -80,8 +80,8 @@ void main() {
       );
       expect(
           service.fetch,
-          throwsA(isA<QuizIndexException>()
-              .having((e) => e.message, 'message', contains('404'))));
+          throwsA(isA<QuizIndexException>().having(
+              (e) => e.message, 'message', contains('请稍后重试'))));
       service.dispose();
     });
 

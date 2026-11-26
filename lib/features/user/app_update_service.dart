@@ -2,44 +2,58 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-/// 应用更新清单：与 R2 上 `xmapk/version.json` 对应。
-///
-/// 只走公开 R2 域名，APP 内不保存任何密钥 / 私有签名域名。
-/// 升级 APK 时只需更新 R2 上的清单与安装包，无需发版改代码。
+/// 发布页入口：无 APK asset 或拉取失败时的兜底地址。
+const String kReleasePageUrl = 'https://github.com/GemmLee/toolbox/releases';
+
+/// 一条 Release 更新信息：版本号来自 tag，下载地址来自 asset。
 class AppUpdateInfo {
   const AppUpdateInfo({
     required this.version,
     this.versionCode = 0,
     this.notes = '',
-    this.apkFile = '',
+    this.downloadUrl = '',
+    this.releaseUrl = '',
   });
 
   final String version;
   final int versionCode;
   final String notes;
 
-  /// 相对 `xmapk/` 的对象名；为空时回退到默认安装包名。
-  final String apkFile;
+  /// APK asset 直链；为空时回退到发布页。
+  final String downloadUrl;
 
-  factory AppUpdateInfo.fromJson(Map<String, dynamic> json) {
+  /// Release 页面地址，作为无 APK asset 时的兜底。
+  final String releaseUrl;
+
+  String get openUrl => downloadUrl.isNotEmpty
+      ? downloadUrl
+      : (releaseUrl.isNotEmpty ? releaseUrl : kReleasePageUrl);
+
+  factory AppUpdateInfo.fromReleaseJson(Map<String, dynamic> json) {
+    final rawTag = (json['tag_name'] ?? json['tag'] ?? '').toString().trim();
+    final tag = rawTag.startsWith('v') || rawTag.startsWith('V')
+        ? rawTag.substring(1)
+        : rawTag;
+    final assets = json['assets'];
+    var apkUrl = '';
+    if (assets is List) {
+      for (final asset in assets) {
+        if (asset is! Map) continue;
+        final name = '${asset['name'] ?? ''}'.toLowerCase();
+        if (!name.endsWith('.apk')) continue;
+        final url = '${asset['browser_download_url'] ?? ''}';
+        if (url.isNotEmpty) {
+          apkUrl = url;
+          break;
+        }
+      }
+    }
     return AppUpdateInfo(
-      version: (json['version'] ?? '').toString().trim(),
-      versionCode: json['versionCode'] is num
-          ? (json['versionCode'] as num).toInt()
-          : int.tryParse('${json['versionCode']}') ?? 0,
-      notes: (json['notes'] ?? json['note'] ?? '').toString(),
-      apkFile: (json['apkFile'] ?? json['file'] ?? '').toString().trim(),
+      version: tag,
+      notes: (json['body'] ?? json['name'] ?? '').toString().trim(),
+      downloadUrl: apkUrl,
+      releaseUrl: (json['html_url'] ?? '').toString().trim(),
     );
-  }
-
-  /// 完整下载直链（公开 R2 域名 + xmapk/ 目录）。
-  String apkUrl(String baseUrl) {
-    final base = baseUrl.endsWith('/')
-        ? baseUrl.substring(0, baseUrl.length - 1)
-        : baseUrl;
-    final name =
-        apkFile.isEmpty ? 'XMtools-$version.apk' : apkFile.split('/').last;
-    return '$base/xmapk/${Uri.encodeComponent(name)}';
   }
 }
 
@@ -50,54 +64,52 @@ class AppUpdateException implements Exception {
   String toString() => message;
 }
 
-/// R2 更新检查：拉取 version.json 并与本地版本比较。
-///
-/// [client] 与 [baseUrl] 可注入，便于测试；超时统一由 [timeout] 控制。
+/// 更新检查：读取 GitHub 最新 Release 的 tag 与 APK asset。
 class AppUpdateService {
   AppUpdateService({
     http.Client? client,
-    this.baseUrl = kPublicResourceBaseUrl,
+    this.repository = kDefaultRepository,
     this.timeout = const Duration(seconds: 12),
   }) : _client = client ?? http.Client();
 
-  /// 公开 R2 域名（与网页 xmhome.html、题库索引一致）。仅公开可读对象。
-  static const String kPublicResourceBaseUrl = 'https://xmonline-sgcc.r2.dev';
-  static const String manifestPath = 'xmapk/version.json';
+  static const String kDefaultRepository = 'GemmLee/toolbox';
+  static const String kApiBaseUrl = 'https://api.github.com';
 
   final http.Client _client;
-  final String baseUrl;
+  final String repository;
   final Duration timeout;
 
-  String get manifestUrl {
-    final base = baseUrl.endsWith('/')
-        ? baseUrl.substring(0, baseUrl.length - 1)
-        : baseUrl;
-    return '$base/$manifestPath';
-  }
+  String get releaseApiUrl =>
+      '$kApiBaseUrl/repos/$repository/releases/latest';
 
   Future<AppUpdateInfo> fetch() async {
     final http.Response resp;
     try {
       resp = await _client
-          .get(Uri.parse(manifestUrl), headers: const <String, String>{
-        'Accept': 'application/json',
+          .get(Uri.parse(releaseApiUrl), headers: const <String, String>{
+        'Accept': 'application/vnd.github+json',
+        'User-Agent': 'XMtools',
       }).timeout(timeout);
-    } catch (e) {
-      throw AppUpdateException('网络请求失败：$e');
+    } catch (_) {
+      throw const AppUpdateException('网络请求失败，请稍后重试');
+    }
+    if (resp.statusCode == 404) {
+      throw const AppUpdateException('暂无发布版本，请稍后重试');
     }
     if (resp.statusCode != 200) {
-      throw AppUpdateException('更新服务返回 HTTP ${resp.statusCode}');
+      throw const AppUpdateException('更新服务暂时不可用');
     }
     Object? decoded;
     try {
       decoded = jsonDecode(utf8.decode(resp.bodyBytes, allowMalformed: true));
     } on FormatException {
-      throw const AppUpdateException('更新清单不是有效的 JSON');
+      throw const AppUpdateException('更新信息格式异常');
     }
-    if (decoded is! Map) throw const AppUpdateException('更新清单格式异常');
-    final info = AppUpdateInfo.fromJson(Map<String, dynamic>.from(decoded));
+    if (decoded is! Map) throw const AppUpdateException('更新信息格式异常');
+    final info =
+        AppUpdateInfo.fromReleaseJson(Map<String, dynamic>.from(decoded));
     if (info.version.isEmpty) {
-      throw const AppUpdateException('更新清单缺少 version 字段');
+      throw const AppUpdateException('更新信息格式异常');
     }
     return info;
   }
@@ -106,8 +118,6 @@ class AppUpdateService {
 }
 
 /// 语义化版本比较：只比较数字段，忽略 `v` 前缀与构建元数据。
-///
-/// 返回 true 表示 [latest] 比 [current] 新；段数不足时用 0 补齐。
 bool isNewerVersion(String latest, String current) {
   List<int> parse(String value) {
     final cleaned = value.trim().toLowerCase();

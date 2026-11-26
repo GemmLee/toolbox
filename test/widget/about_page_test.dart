@@ -95,12 +95,22 @@ void main() {
   testWidgets('检测更新：有新版本时显示版本号与下载按钮，点击跳浏览器', (tester) async {
     final opened = <String>[];
     final client = MockClient((request) async {
-      expect(request.url.path, '/xmapk/version.json');
+      expect(
+        request.url.toString(),
+        'https://api.github.com/repos/GemmLee/toolbox/releases/latest',
+      );
       return http.Response(
         jsonEncode(<String, dynamic>{
-          'version': '9.9.9',
-          'notes': '测试新版本',
-          'apkFile': 'XMtools-9.9.9.apk',
+          'tag_name': 'v9.9.9',
+          'body': '测试新版本',
+          'html_url': 'https://github.com/GemmLee/toolbox/releases/tag/v9.9.9',
+          'assets': <Object?>[
+            <String, Object?>{
+              'name': 'XMtools-9.9.9.apk',
+              'browser_download_url':
+                  'https://github.com/GemmLee/toolbox/releases/download/v9.9.9/XMtools-9.9.9.apk',
+            },
+          ],
         }),
         200,
         headers: <String, String>{'content-type': 'application/json'},
@@ -137,8 +147,35 @@ void main() {
     await tester.pumpAndSettle();
     expect(channelCalls, hasLength(1));
     expect(
-        opened.single, 'https://xmonline-sgcc.r2.dev/xmapk/XMtools-9.9.9.apk');
+      opened.single,
+      'https://github.com/GemmLee/toolbox/releases/download/v9.9.9/XMtools-9.9.9.apk',
+    );
     service.dispose();
+  });
+
+  testWidgets('关于页 GitHub 图标跳转到项目主页', (tester) async {
+    final opened = <String>[];
+    const testChannel = MethodChannel('toolbox/browser-project-test');
+    final opener = BrowserOpener(channel: testChannel);
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      testChannel,
+      (call) async {
+        opened.add(call.arguments['url'] as String);
+        return true;
+      },
+    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(testChannel, null));
+
+    await tester.pumpWidget(MaterialApp(
+      home: AboutPage(projectOpener: opener),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('about-github')));
+    await tester.pumpAndSettle();
+
+    expect(opened, <String>['https://github.com/GemmLee/toolbox']);
   });
 
   testWidgets('切换到英文后入口卡与详情页文案同步切换', (tester) async {
